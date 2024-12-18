@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web NFC Reader</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .supported {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .unsupported {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .tag-data {
+            margin-top: 25px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        .button-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            flex: 1;
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0b5ed7;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .alert {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            background-color: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Web NFC Reader</h1>
+        
+        <div id="nfcStatus" class="status">
+            Checking NFC support...
+        </div>
+
+        <div id="browserAlert" class="alert" style="display: none;">
+            Note: Web NFC is currently only supported in Chrome for Android.
+        </div>
+
+        <div class="tag-data">
+            <h2>NFC Tag Data</h2>
+            <pre id="tagData">No tag data available</pre>
+        </div>
+
+        <div class="button-container">
+            <button id="readButton" onclick="startScanning()" disabled>Start NFC Scan</button>
+            <button id="writeButton" onclick="writeTag()" disabled>Write to Tag</button>
+        </div>
+    </div>
+
+    <script>
+        let isScanning = false;
+
+        async function checkNFCSupport() {
+            const statusDiv = document.getElementById('nfcStatus');
+            const browserAlert = document.getElementById('browserAlert');
+            const readButton = document.getElementById('readButton');
+            const writeButton = document.getElementById('writeButton');
+
+            if ('NDEFReader' in window) {
+                statusDiv.className = 'status supported';
+                statusDiv.textContent = 'NFC is supported on this device';
+                readButton.disabled = false;
+                writeButton.disabled = false;
+            } else {
+                statusDiv.className = 'status unsupported';
+                statusDiv.textContent = 'NFC is not supported on this device/browser';
+                browserAlert.style.display = 'block';
+            }
+        }
+
+        async function startScanning() {
+            const readButton = document.getElementById('readButton');
+            const tagData = document.getElementById('tagData');
+
+            if (!isScanning) {
+                try {
+                    const ndef = new NDEFReader();
+                    await ndef.scan();
+                    
+                    readButton.textContent = 'Stop Scanning';
+                    isScanning = true;
+
+                    ndef.addEventListener("reading", ({ message, serialNumber }) => {
+                        const records = [];
+                        for (const record of message.records) {
+                            records.push({
+                                recordType: record.recordType,
+                                mediaType: record.mediaType,
+                                data: record.data
+                            });
+                        }
+                        
+                        const tagInfo = {
+                            serialNumber: serialNumber,
+                            records: records
+                        };
+                        
+                        tagData.textContent = JSON.stringify(tagInfo, null, 2);
+                    });
+
+                } catch (error) {
+                    tagData.textContent = `Error: ${error.message}`;
+                }
+            } else {
+                // Note: Currently, there's no direct way to stop scanning in the Web NFC API
+                readButton.textContent = 'Start NFC Scan';
+                isScanning = false;
+            }
+        }
+
+        async function writeTag() {
+            try {
+                const ndef = new NDEFReader();
+                await ndef.write({
+                    records: [{
+                        recordType: "text",
+                        data: "Hello from Web NFC!"
+                    }]
+                });
+                alert("Data written successfully!");
+            } catch (error) {
+                alert(`Error writing to tag: ${error.message}`);
+            }
+        }
+
+        // Check NFC support when page loads
+        checkNFCSupport();
+    </script>
+</body>
+</html> 
